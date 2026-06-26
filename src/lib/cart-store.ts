@@ -53,7 +53,7 @@ export const cartStore = {
     return state;
   },
   getServerSnapshot(): CartItem[] {
-    return [];
+    return EMPTY;
   },
   add(item: Omit<CartItem, "quantity">, qty = 1) {
     const existing = state.find((i) => i.productId === item.productId);
