@@ -58,31 +58,40 @@ function Index() {
             height={1080}
             className="w-full h-full object-cover"
           />
-          {/* soft scrim concentrated top-left for text legibility */}
           <div
             className="absolute inset-0 pointer-events-none"
             style={{
               background:
-                "radial-gradient(ellipse 70% 60% at 22% 28%, rgba(20,12,8,0.7) 0%, rgba(20,12,8,0.35) 45%, transparent 75%)",
+                "radial-gradient(ellipse 75% 65% at 25% 32%, rgba(20,12,8,0.72) 0%, rgba(20,12,8,0.35) 48%, transparent 78%)",
             }}
           />
         </div>
 
-        <div className="relative z-10 max-w-2xl text-background px-6 md:px-16 pt-24 md:pt-32">
-          <p className="text-[11px] uppercase tracking-[0.35em] mb-5 opacity-85">
-            Махачкала · Ручная работа
-          </p>
-          <h1 className="font-serif text-5xl md:text-7xl mb-5 leading-[1.05] drop-shadow-[0_2px_18px_rgba(0,0,0,0.45)]">
-            Свет дагестанских гор
+        <div className="relative z-10 max-w-3xl text-background px-6 md:px-16 pt-24 md:pt-32 animate-in fade-in slide-in-from-left-8 duration-1000">
+          <div className="flex items-center gap-4 mb-8">
+            <span className="block h-px w-10 bg-clay" />
+            <p className="text-[11px] uppercase tracking-[0.4em] font-semibold text-clay">
+              Махачкала · Ручная работа
+            </p>
+          </div>
+
+          <h1 className="font-serif mb-8 leading-[0.95] tracking-tight text-5xl md:text-7xl drop-shadow-[0_2px_22px_rgba(0,0,0,0.5)]">
+            <span className="italic font-black text-clay">Свет</span>{" "}
+            <span className="font-light">дагестанских гор</span>
           </h1>
-          <p className="text-base md:text-lg font-light mb-9 italic opacity-95 max-w-lg">
+
+          <p className="text-lg md:text-xl italic font-light leading-relaxed mb-12 max-w-md border-l-2 border-clay/50 pl-6 opacity-95">
             Свечи ручной работы из натурального воска с ароматами каспийского побережья.
           </p>
+
           <Link
             to="/catalog"
-            className="inline-block bg-primary text-primary-foreground px-10 py-4 text-xs font-semibold tracking-[0.25em] uppercase hover:bg-foreground transition-all"
+            className="group relative inline-flex items-center bg-foreground text-background px-10 py-4 text-xs font-semibold tracking-[0.25em] uppercase transition-all duration-300 hover:bg-clay hover:pl-12"
           >
             В каталог
+            <span className="absolute right-4 top-1/2 -translate-y-1/2 opacity-0 group-hover:opacity-100 transition-all duration-300">
+              →
+            </span>
           </Link>
         </div>
       </section>
