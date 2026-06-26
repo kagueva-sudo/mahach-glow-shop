@@ -46,7 +46,7 @@ function Index() {
             height={1080}
             className="w-full h-full object-cover"
           />
-          <div className="absolute inset-0 bg-black/40" />
+          <div className="absolute inset-0 bg-gradient-to-b from-black/30 via-black/15 to-black/55" />
         </div>
         <div className="relative z-10 text-center max-w-2xl text-background">
           <p className="text-[11px] uppercase tracking-[0.3em] mb-6 opacity-80">
