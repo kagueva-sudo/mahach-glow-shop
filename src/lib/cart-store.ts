@@ -9,6 +9,7 @@ export type CartItem = {
 };
 
 const STORAGE_KEY = "nuri-cart-v1";
+const EMPTY: CartItem[] = [];
 let state: CartItem[] = [];
 const listeners = new Set<() => void>();
 
