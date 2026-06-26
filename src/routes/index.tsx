@@ -2,12 +2,17 @@ import { createFileRoute, Link } from "@tanstack/react-router";
 import { useSuspenseQuery, queryOptions } from "@tanstack/react-query";
 import { SiteShell } from "@/components/site/SiteShell";
 import { ProductCard } from "@/components/site/ProductCard";
-import { listPublicProducts } from "@/lib/shop.functions";
-import heroImg from "@/assets/hero.jpg";
+import { listPublicProducts, getHeroImageUrl } from "@/lib/shop.functions";
+import heroImgFallback from "@/assets/hero.jpg";
 
 const productsQO = queryOptions({
   queryKey: ["products", "public"],
   queryFn: () => listPublicProducts(),
+});
+
+const heroQO = queryOptions({
+  queryKey: ["site", "hero"],
+  queryFn: () => getHeroImageUrl(),
 });
 
 export const Route = createFileRoute("/")({
@@ -26,36 +31,53 @@ export const Route = createFileRoute("/")({
       },
     ],
   }),
-  loader: ({ context }) => context.queryClient.ensureQueryData(productsQO),
+  loader: async ({ context }) => {
+    await Promise.all([
+      context.queryClient.ensureQueryData(productsQO),
+      context.queryClient.ensureQueryData(heroQO),
+    ]);
+  },
   component: Index,
 });
 
 function Index() {
   const { data: products } = useSuspenseQuery(productsQO);
+  const { data: hero } = useSuspenseQuery(heroQO);
   const featured = products.filter((p) => p.category === "candle").slice(0, 4);
+  const heroSrc = hero?.url ?? heroImgFallback;
 
   return (
     <SiteShell>
       {/* Hero */}
-      <section className="relative h-[85vh] min-h-[560px] flex items-center justify-center overflow-hidden px-6">
+      <section className="relative h-[88vh] min-h-[600px] flex items-end justify-center overflow-hidden">
         <div className="absolute inset-0">
           <img
-            src={heroImg}
+            src={heroSrc}
             alt="Свеча Nuri"
             width={1920}
             height={1080}
             className="w-full h-full object-cover"
           />
-          <div className="absolute inset-0 bg-gradient-to-b from-black/30 via-black/15 to-black/55" />
+          {/* soft vignette so edges hold the frame */}
+          <div
+            className="absolute inset-0 pointer-events-none"
+            style={{
+              background:
+                "radial-gradient(ellipse at center, transparent 45%, rgba(20,12,8,0.45) 100%)",
+            }}
+          />
+          {/* bottom gradient panel for text legibility */}
+          <div className="absolute inset-x-0 bottom-0 h-[62%] bg-gradient-to-t from-[#1a110a]/85 via-[#1a110a]/55 to-transparent" />
         </div>
-        <div className="relative z-10 text-center max-w-2xl text-background">
-          <p className="text-[11px] uppercase tracking-[0.3em] mb-6 opacity-80">
+
+        <div className="relative z-10 text-center max-w-2xl text-background px-6 pb-16 md:pb-24">
+          <p className="text-[11px] uppercase tracking-[0.35em] mb-5 opacity-85">
             Махачкала · Ручная работа
           </p>
-          <h1 className="font-serif text-5xl md:text-7xl mb-6 leading-[1.05]">
+          <h1 className="font-serif text-5xl md:text-7xl mb-5 leading-[1.05] drop-shadow-[0_2px_18px_rgba(0,0,0,0.35)]">
             Свет дагестанских гор
           </h1>
-          <p className="text-lg md:text-xl font-light mb-10 italic opacity-90">
+          <p className="text-base md:text-lg font-light mb-9 italic opacity-95 max-w-xl mx-auto">
             Свечи ручной работы из натурального воска с ароматами каспийского побережья.
           </p>
           <Link
