@@ -37,7 +37,7 @@ const ORDER_STATUS_LABELS = {
 
 function AdminPage() {
   const navigate = useNavigate();
-  const [tab, setTab] = useState<"orders" | "products">("orders");
+  const [tab, setTab] = useState<"orders" | "products" | "settings">("orders");
   const checkAdmin = useServerFn(checkIsAdmin);
 
   const adminQ = useQuery({
