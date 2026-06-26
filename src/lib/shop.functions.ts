@@ -198,3 +198,33 @@ export const checkIsAdmin = createServerFn({ method: "GET" })
     if (error) throw new Error(error.message);
     return { isAdmin: Boolean(data) };
   });
+
+// ===== Site settings =====
+
+export const getHeroImageUrl = createServerFn({ method: "GET" }).handler(
+  async (): Promise<{ url: string | null }> => {
+    const supabase = publicClient();
+    const { data, error } = await supabase
+      .from("site_settings")
+      .select("value")
+      .eq("key", "hero_image_url")
+      .maybeSingle();
+    if (error) throw new Error(error.message);
+    return { url: (data?.value as string | null) ?? null };
+  },
+);
+
+export const adminSetHeroImageUrl = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((data: unknown) =>
+    z.object({ url: z.string().url().max(2000).nullable() }).parse(data),
+  )
+  .handler(async ({ data, context }) => {
+    await assertAdmin(context.supabase as ReturnType<typeof publicClient>, context.userId);
+    const { error } = await context.supabase
+      .from("site_settings")
+      .upsert({ key: "hero_image_url", value: data.url }, { onConflict: "key" });
+    if (error) throw new Error(error.message);
+    return { ok: true as const };
+  });
+
