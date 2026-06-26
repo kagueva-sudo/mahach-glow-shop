@@ -49,7 +49,7 @@ function Index() {
   return (
     <SiteShell>
       {/* Hero */}
-      <section className="relative h-[88vh] min-h-[600px] flex items-end justify-center overflow-hidden">
+      <section className="relative h-[88vh] min-h-[600px] overflow-hidden">
         <div className="absolute inset-0">
           <img
             src={heroSrc}
@@ -58,26 +58,24 @@ function Index() {
             height={1080}
             className="w-full h-full object-cover"
           />
-          {/* soft vignette so edges hold the frame */}
+          {/* soft scrim concentrated top-left for text legibility */}
           <div
             className="absolute inset-0 pointer-events-none"
             style={{
               background:
-                "radial-gradient(ellipse at center, transparent 45%, rgba(20,12,8,0.45) 100%)",
+                "radial-gradient(ellipse 70% 60% at 22% 28%, rgba(20,12,8,0.7) 0%, rgba(20,12,8,0.35) 45%, transparent 75%)",
             }}
           />
-          {/* bottom gradient panel for text legibility */}
-          <div className="absolute inset-x-0 bottom-0 h-[62%] bg-gradient-to-t from-[#1a110a]/85 via-[#1a110a]/55 to-transparent" />
         </div>
 
-        <div className="relative z-10 text-center max-w-2xl text-background px-6 pb-16 md:pb-24">
+        <div className="relative z-10 max-w-2xl text-background px-6 md:px-16 pt-24 md:pt-32">
           <p className="text-[11px] uppercase tracking-[0.35em] mb-5 opacity-85">
             Махачкала · Ручная работа
           </p>
-          <h1 className="font-serif text-5xl md:text-7xl mb-5 leading-[1.05] drop-shadow-[0_2px_18px_rgba(0,0,0,0.35)]">
+          <h1 className="font-serif text-5xl md:text-7xl mb-5 leading-[1.05] drop-shadow-[0_2px_18px_rgba(0,0,0,0.45)]">
             Свет дагестанских гор
           </h1>
-          <p className="text-base md:text-lg font-light mb-9 italic opacity-95 max-w-xl mx-auto">
+          <p className="text-base md:text-lg font-light mb-9 italic opacity-95 max-w-lg">
             Свечи ручной работы из натурального воска с ароматами каспийского побережья.
           </p>
           <Link
