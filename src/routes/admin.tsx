@@ -511,3 +511,109 @@ function Field({
     </label>
   );
 }
+
+function SettingsPanel() {
+  const qc = useQueryClient();
+  const getHero = useServerFn(getHeroImageUrl);
+  const setHero = useServerFn(adminSetHeroImageUrl);
+  const heroQ = useQuery({ queryKey: ["site", "hero"], queryFn: () => getHero({}) });
+
+  const [uploading, setUploading] = useState(false);
+  const [previewUrl, setPreviewUrl] = useState<string | null>(null);
+
+  const save = useMutation({
+    mutationFn: (url: string | null) => setHero({ data: { url } }),
+    onSuccess: () => {
+      toast.success("Hero обновлён");
+      qc.invalidateQueries({ queryKey: ["site", "hero"] });
+      setPreviewUrl(null);
+    },
+    onError: (e) => toast.error(e instanceof Error ? e.message : "Ошибка"),
+  });
+
+  async function handleUpload(file: File) {
+    if (!file.type.startsWith("image/")) {
+      toast.error("Это не изображение");
+      return;
+    }
+    if (file.size > 8 * 1024 * 1024) {
+      toast.error("Файл больше 8 МБ");
+      return;
+    }
+    setUploading(true);
+    try {
+      const ext = file.name.split(".").pop()?.toLowerCase() || "jpg";
+      const path = `hero/${Date.now()}-${Math.random().toString(36).slice(2, 8)}.${ext}`;
+      const { error: upErr } = await supabase.storage
+        .from("site-assets")
+        .upload(path, file, { cacheControl: "31536000", upsert: false, contentType: file.type });
+      if (upErr) throw upErr;
+      // 100 years signed URL — bucket is private, so this URL must be long-lived.
+      const { data: signed, error: sErr } = await supabase.storage
+        .from("site-assets")
+        .createSignedUrl(path, 60 * 60 * 24 * 365 * 100);
+      if (sErr || !signed?.signedUrl) throw sErr ?? new Error("Не удалось получить ссылку");
+      setPreviewUrl(signed.signedUrl);
+      save.mutate(signed.signedUrl);
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Ошибка загрузки");
+    } finally {
+      setUploading(false);
+    }
+  }
+
+  const currentUrl = previewUrl ?? heroQ.data?.url ?? null;
+
+  return (
+    <div className="max-w-3xl">
+      <h2 className="font-serif text-3xl mb-6">Оформление главной</h2>
+
+      <section className="bg-background border border-border p-6">
+        <h3 className="font-serif text-xl mb-2">Hero-изображение</h3>
+        <p className="text-sm text-muted-foreground mb-5">
+          Рекомендуем горизонтальное фото от 1920×1080. Если ничего не загружено —
+          используется встроенное изображение мастерской.
+        </p>
+
+        <div className="aspect-[16/9] bg-muted overflow-hidden mb-4 border border-border">
+          {currentUrl ? (
+            <img src={currentUrl} alt="Текущее hero" className="w-full h-full object-cover" />
+          ) : (
+            <div className="w-full h-full flex items-center justify-center text-xs text-muted-foreground uppercase tracking-[0.2em]">
+              Используется изображение по умолчанию
+            </div>
+          )}
+        </div>
+
+        <div className="flex flex-wrap gap-3 items-center">
+          <label className="inline-flex items-center bg-primary text-primary-foreground px-5 py-2.5 text-xs uppercase tracking-[0.2em] cursor-pointer hover:bg-foreground transition-colors">
+            <input
+              type="file"
+              accept="image/*"
+              className="hidden"
+              disabled={uploading || save.isPending}
+              onChange={(e) => {
+                const f = e.target.files?.[0];
+                if (f) handleUpload(f);
+                e.target.value = "";
+              }}
+            />
+            {uploading || save.isPending ? "Загрузка..." : "Загрузить новое"}
+          </label>
+          {heroQ.data?.url && (
+            <button
+              onClick={() => {
+                if (confirm("Вернуть изображение по умолчанию?")) save.mutate(null);
+              }}
+              disabled={save.isPending}
+              className="text-xs uppercase tracking-[0.2em] underline text-muted-foreground hover:text-destructive"
+            >
+              Сбросить
+            </button>
+          )}
+        </div>
+      </section>
+    </div>
+  );
+}
+
