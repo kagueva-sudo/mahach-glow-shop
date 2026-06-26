@@ -76,9 +76,9 @@ function Index() {
           </div>
 
           <h1 className="font-serif mb-8 leading-[0.95] tracking-tight text-5xl md:text-7xl drop-shadow-[0_2px_22px_rgba(0,0,0,0.5)]">
-            <span className="block italic font-black text-clay">Свет</span>
-            <span className="block font-light">дагестанских</span>
-            <span className="block font-light">гор</span>
+            <span className="block italic font-black text-clay opacity-0 animate-[fade-in_1s_ease-out_0.2s_forwards]">Свет</span>
+            <span className="block font-light opacity-0 animate-[fade-in_1s_ease-out_0.7s_forwards]">дагестанских</span>
+            <span className="block font-light opacity-0 animate-[fade-in_1s_ease-out_1.2s_forwards]">гор</span>
           </h1>
 
           <p className="text-lg md:text-xl italic font-light leading-relaxed mb-12 max-w-md border-l-2 border-clay/50 pl-6 opacity-95">
