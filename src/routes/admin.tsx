@@ -81,6 +81,10 @@ function AdminPage() {
               <TabBtn active={tab === "products"} onClick={() => setTab("products")}>
                 Товары
               </TabBtn>
+              <TabBtn active={tab === "settings"} onClick={() => setTab("settings")}>
+                Оформление
+              </TabBtn>
+
             </nav>
           </div>
           <button
