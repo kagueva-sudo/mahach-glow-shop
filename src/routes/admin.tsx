@@ -99,11 +99,14 @@ function AdminPage() {
         </div>
       </header>
       <main className="max-w-6xl mx-auto p-6">
-        {tab === "orders" ? <OrdersPanel /> : <ProductsPanel />}
+        {tab === "orders" && <OrdersPanel />}
+        {tab === "products" && <ProductsPanel />}
+        {tab === "settings" && <SettingsPanel />}
       </main>
     </div>
   );
 }
+
 
 function TabBtn({
   active,
