@@ -17,8 +17,9 @@ const productQO = (slug: string) =>
 
 export const Route = createFileRoute("/product/$slug")({
   head: ({ loaderData }) => {
-    const name = loaderData?.name ?? "Товар";
-    const description = loaderData?.description ?? "Свеча ручной работы Nuri";
+    const product = loaderData as { name?: string; description?: string } | undefined;
+    const name = product?.name ?? "Товар";
+    const description = product?.description ?? "Свеча ручной работы Nuri";
     return {
       meta: [
         { title: `${name} — Nuri` },
