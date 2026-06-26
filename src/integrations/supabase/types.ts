@@ -14,16 +14,132 @@ export type Database = {
   }
   public: {
     Tables: {
-      [_ in never]: never
+      orders: {
+        Row: {
+          address: string | null
+          comment: string | null
+          created_at: string
+          customer_name: string
+          delivery_type: Database["public"]["Enums"]["delivery_type"]
+          id: string
+          items: Json
+          phone: string
+          status: Database["public"]["Enums"]["order_status"]
+          total: number
+        }
+        Insert: {
+          address?: string | null
+          comment?: string | null
+          created_at?: string
+          customer_name: string
+          delivery_type?: Database["public"]["Enums"]["delivery_type"]
+          id?: string
+          items: Json
+          phone: string
+          status?: Database["public"]["Enums"]["order_status"]
+          total: number
+        }
+        Update: {
+          address?: string | null
+          comment?: string | null
+          created_at?: string
+          customer_name?: string
+          delivery_type?: Database["public"]["Enums"]["delivery_type"]
+          id?: string
+          items?: Json
+          phone?: string
+          status?: Database["public"]["Enums"]["order_status"]
+          total?: number
+        }
+        Relationships: []
+      }
+      products: {
+        Row: {
+          category: Database["public"]["Enums"]["product_category"]
+          created_at: string
+          description: string
+          id: string
+          image_url: string | null
+          is_published: boolean
+          name: string
+          price: number
+          scent: string | null
+          slug: string
+          sort_order: number
+          updated_at: string
+          volume: string | null
+        }
+        Insert: {
+          category: Database["public"]["Enums"]["product_category"]
+          created_at?: string
+          description?: string
+          id?: string
+          image_url?: string | null
+          is_published?: boolean
+          name: string
+          price: number
+          scent?: string | null
+          slug: string
+          sort_order?: number
+          updated_at?: string
+          volume?: string | null
+        }
+        Update: {
+          category?: Database["public"]["Enums"]["product_category"]
+          created_at?: string
+          description?: string
+          id?: string
+          image_url?: string | null
+          is_published?: boolean
+          name?: string
+          price?: number
+          scent?: string | null
+          slug?: string
+          sort_order?: number
+          updated_at?: string
+          volume?: string | null
+        }
+        Relationships: []
+      }
+      user_roles: {
+        Row: {
+          created_at: string
+          id: string
+          role: Database["public"]["Enums"]["app_role"]
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          role: Database["public"]["Enums"]["app_role"]
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          role?: Database["public"]["Enums"]["app_role"]
+          user_id?: string
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
     }
     Functions: {
-      [_ in never]: never
+      has_role: {
+        Args: {
+          _role: Database["public"]["Enums"]["app_role"]
+          _user_id: string
+        }
+        Returns: boolean
+      }
     }
     Enums: {
-      [_ in never]: never
+      app_role: "admin" | "user"
+      delivery_type: "pickup" | "delivery"
+      order_status: "new" | "in_progress" | "done" | "cancelled"
+      product_category: "candle" | "accessory"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -150,6 +266,11 @@ export type CompositeTypes<
 
 export const Constants = {
   public: {
-    Enums: {},
+    Enums: {
+      app_role: ["admin", "user"],
+      delivery_type: ["pickup", "delivery"],
+      order_status: ["new", "in_progress", "done", "cancelled"],
+      product_category: ["candle", "accessory"],
+    },
   },
 } as const
