@@ -12,7 +12,10 @@ import {
   adminUpsertProduct,
   adminDeleteProduct,
   checkIsAdmin,
+  getHeroImageUrl,
+  adminSetHeroImageUrl,
 } from "@/lib/shop.functions";
+
 
 export const Route = createFileRoute("/admin")({
   head: () => ({ meta: [{ title: "Админка — Nuri" }] }),
