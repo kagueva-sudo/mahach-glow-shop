@@ -84,13 +84,19 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
         content:
           "Свечи ручной работы из натурального воска. Мастерская в Махачкале. Доставка по Дагестану и России.",
       },
-      { property: "og:title", content: "Nuri — свечи ручной работы" },
+      { property: "og:title", content: "Nuri — свечи ручной работы в Махачкале" },
       {
         property: "og:description",
         content: "Свечи и аксессуары ручной работы. Махачкала.",
       },
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary_large_image" },
+      { name: "twitter:title", content: "Nuri — свечи ручной работы в Махачкале" },
+      { name: "description", content: "Makhachkala Flame is a website for selling handmade candles in Makhachkala." },
+      { property: "og:description", content: "Makhachkala Flame is a website for selling handmade candles in Makhachkala." },
+      { name: "twitter:description", content: "Makhachkala Flame is a website for selling handmade candles in Makhachkala." },
+      { property: "og:image", content: "https://storage.googleapis.com/gpt-engineer-file-uploads/eM6GwHsPzoQQnD5qN7yohlXDqU23/social-images/social-1782724094838-hero.webp" },
+      { name: "twitter:image", content: "https://storage.googleapis.com/gpt-engineer-file-uploads/eM6GwHsPzoQQnD5qN7yohlXDqU23/social-images/social-1782724094838-hero.webp" },
     ],
     links: [
       { rel: "stylesheet", href: appCss },
