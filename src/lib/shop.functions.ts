@@ -70,7 +70,27 @@ export const submitOrder = createServerFn({ method: "POST" })
   .inputValidator((data: unknown) => submitOrderSchema.parse(data))
   .handler(async ({ data }): Promise<{ orderId: string }> => {
     const supabase = publicClient();
-    const total = data.items.reduce((sum, i) => sum + i.price * i.quantity, 0);
+    const ids = data.items.map((i) => i.productId);
+    const { data: products, error: priceErr } = await supabase
+      .from("products")
+      .select("id, slug, name, price, is_published")
+      .in("id", ids);
+    if (priceErr) throw new Error(priceErr.message);
+    const productMap = new Map((products ?? []).map((p) => [p.id, p]));
+    const validatedItems = data.items.map((i) => {
+      const p = productMap.get(i.productId);
+      if (!p || !p.is_published) {
+        throw new Error(`Товар недоступен: ${i.name}`);
+      }
+      return {
+        productId: p.id,
+        slug: p.slug,
+        name: p.name,
+        price: p.price,
+        quantity: i.quantity,
+      };
+    });
+    const total = validatedItems.reduce((sum, i) => sum + i.price * i.quantity, 0);
     const { data: row, error } = await supabase
       .from("orders")
       .insert({
@@ -79,7 +99,7 @@ export const submitOrder = createServerFn({ method: "POST" })
         delivery_type: data.delivery_type,
         address: data.address ?? null,
         comment: data.comment ?? null,
-        items: data.items as unknown as Database["public"]["Tables"]["orders"]["Insert"]["items"],
+        items: validatedItems as unknown as Database["public"]["Tables"]["orders"]["Insert"]["items"],
         total,
         status: "new",
       })
@@ -88,6 +108,7 @@ export const submitOrder = createServerFn({ method: "POST" })
     if (error) throw new Error(error.message);
     return { orderId: row.id };
   });
+
 
 // ===== Admin-only =====
 
