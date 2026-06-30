@@ -349,7 +349,7 @@ export const adminUpdateChatStatus = createServerFn({ method: "POST" })
   )
   .handler(async ({ data, context }) => {
     await assertAdmin(context.supabase as ReturnType<typeof publicClient>, context.userId);
-    const patch: Record<string, unknown> = {};
+    const patch: Database["public"]["Tables"]["chat_sessions"]["Update"] = {};
     if (data.status) patch.status = data.status;
     if (typeof data.needs_operator === "boolean") patch.needs_operator = data.needs_operator;
     const { error } = await context.supabase.from("chat_sessions").update(patch).eq("id", data.id);
