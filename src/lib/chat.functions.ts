@@ -91,7 +91,7 @@ const sendSchema = z.object({
 
 export const sendChatMessage = createServerFn({ method: "POST" })
   .inputValidator((data: unknown) => sendSchema.parse(data))
-  .handler(async ({ data }): Promise<{ reply: string; orderId: string | null; ticketOpened: boolean }> => {
+  .handler(async ({ data }): Promise<{ reply: string; orderId: string | null; state.ticket: boolean }> => {
     const key = process.env.LOVABLE_API_KEY;
     if (!key) throw new Error("Missing LOVABLE_API_KEY");
 
@@ -219,7 +219,7 @@ ${catalog || "(каталог пуст)"}
             .select("id")
             .single();
           if (oErr) return { ok: false, error: oErr.message };
-          createdOrderId = order.id;
+          state.orderId = order.id;
           await supabaseAdmin
             .from("chat_sessions")
             .update({ status: "ordered", order_id: order.id })
@@ -242,7 +242,7 @@ ${catalog || "(каталог пуст)"}
             role: "system",
             content: `[Тикет] ${input.reason}`,
           });
-          ticketOpened = true;
+          state.ticket = true;
           // best-effort email notification
           try {
             const resendKey = process.env.RESEND_API_KEY;
@@ -278,9 +278,9 @@ ${catalog || "(каталог пуст)"}
       stopWhen: stepCountIs(8),
     });
 
-    const replyText = result.text?.trim() || (createdOrderId
-      ? `Заказ оформлен! Номер: ${createdOrderId.slice(0, 8)}. Мы свяжемся с вами по телефону ${session.phone} в течение часа.`
-      : ticketOpened
+    const replyText = result.text?.trim() || (state.orderId
+      ? `Заказ оформлен! Номер: ${state.orderId.slice(0, 8)}. Мы свяжемся с вами по телефону ${session.phone} в течение часа.`
+      : state.ticket
         ? "Подключаю живого оператора, он напишет вам в ближайшее время."
         : "Расскажите подробнее, я слушаю.");
 
@@ -294,7 +294,7 @@ ${catalog || "(каталог пуст)"}
       .update({ last_message_at: new Date().toISOString() })
       .eq("id", session.id);
 
-    return { reply: replyText, orderId: createdOrderId, ticketOpened };
+    return { reply: replyText, orderId: state.orderId, state.ticket };
   });
 
 // ===== Admin =====
