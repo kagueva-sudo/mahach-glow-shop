@@ -1,7 +1,7 @@
 import { createFileRoute, redirect, useNavigate, Link } from "@tanstack/react-router";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
-import { useState } from "react";
+import { useState, useMemo, useEffect } from "react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { formatRub } from "@/lib/format";
@@ -35,15 +35,42 @@ const ORDER_STATUS_LABELS = {
   cancelled: "Отменён",
 } as const;
 
+type OrderStatus = keyof typeof ORDER_STATUS_LABELS;
+
+async function uploadToSiteAssets(file: File, folder: string): Promise<string> {
+  if (!file.type.startsWith("image/")) throw new Error("Это не изображение");
+  if (file.size > 8 * 1024 * 1024) throw new Error("Файл больше 8 МБ");
+  const ext = file.name.split(".").pop()?.toLowerCase() || "jpg";
+  const path = `${folder}/${Date.now()}-${Math.random().toString(36).slice(2, 8)}.${ext}`;
+  const { error: upErr } = await supabase.storage
+    .from("site-assets")
+    .upload(path, file, { cacheControl: "31536000", upsert: false, contentType: file.type });
+  if (upErr) throw upErr;
+  const { data: signed, error: sErr } = await supabase.storage
+    .from("site-assets")
+    .createSignedUrl(path, 60 * 60 * 24 * 365 * 100);
+  if (sErr || !signed?.signedUrl) throw sErr ?? new Error("Не удалось получить ссылку");
+  return signed.signedUrl;
+}
+
 function AdminPage() {
   const navigate = useNavigate();
-  const [tab, setTab] = useState<"orders" | "products" | "settings">("orders");
+  const [tab, setTab] = useState<"orders" | "products" | "settings" | "profile">("orders");
   const checkAdmin = useServerFn(checkIsAdmin);
+  const listOrdersFn = useServerFn(adminListOrders);
 
   const adminQ = useQuery({
     queryKey: ["admin", "isAdmin"],
     queryFn: () => checkAdmin({}),
   });
+
+  // Counter of new orders for tab badge
+  const ordersCountQ = useQuery({
+    queryKey: ["admin", "orders"],
+    queryFn: () => listOrdersFn({}),
+    enabled: Boolean(adminQ.data?.isAdmin),
+  });
+  const newCount = (ordersCountQ.data ?? []).filter((o) => o.status === "new").length;
 
   if (adminQ.isLoading) {
     return <div className="p-20 text-center text-muted-foreground">Проверка прав...</div>;
@@ -71,12 +98,12 @@ function AdminPage() {
   return (
     <div className="min-h-screen bg-secondary/30">
       <header className="bg-background border-b border-border">
-        <div className="max-w-6xl mx-auto px-6 py-4 flex justify-between items-center">
-          <div className="flex items-center gap-8">
+        <div className="max-w-6xl mx-auto px-6 py-4 flex justify-between items-center flex-wrap gap-3">
+          <div className="flex items-center gap-8 flex-wrap">
             <Link to="/" className="font-serif text-xl">Nuri · Админка</Link>
-            <nav className="flex gap-2">
+            <nav className="flex gap-2 flex-wrap">
               <TabBtn active={tab === "orders"} onClick={() => setTab("orders")}>
-                Заявки
+                Заявки{newCount > 0 ? ` · ${newCount} нов.` : ""}
               </TabBtn>
               <TabBtn active={tab === "products"} onClick={() => setTab("products")}>
                 Товары
@@ -84,7 +111,9 @@ function AdminPage() {
               <TabBtn active={tab === "settings"} onClick={() => setTab("settings")}>
                 Оформление
               </TabBtn>
-
+              <TabBtn active={tab === "profile"} onClick={() => setTab("profile")}>
+                Профиль
+              </TabBtn>
             </nav>
           </div>
           <button
@@ -102,6 +131,7 @@ function AdminPage() {
         {tab === "orders" && <OrdersPanel />}
         {tab === "products" && <ProductsPanel />}
         {tab === "settings" && <SettingsPanel />}
+        {tab === "profile" && <ProfilePanel />}
       </main>
     </div>
   );
@@ -139,7 +169,7 @@ function OrdersPanel() {
     queryFn: () => listFn({}),
   });
   const update = useMutation({
-    mutationFn: (vars: { id: string; status: "new" | "in_progress" | "done" | "cancelled" }) =>
+    mutationFn: (vars: { id: string; status: OrderStatus }) =>
       updateFn({ data: vars }),
     onSuccess: () => {
       toast.success("Статус обновлён");
@@ -148,15 +178,78 @@ function OrdersPanel() {
     onError: (e) => toast.error(e instanceof Error ? e.message : "Ошибка"),
   });
 
+  const [search, setSearch] = useState("");
+  const [statusFilter, setStatusFilter] = useState<"all" | OrderStatus>("all");
+  const [period, setPeriod] = useState<"all" | "today" | "week" | "month">("all");
+
+  const orders = ordersQ.data ?? [];
+  const filtered = useMemo(() => {
+    const now = Date.now();
+    const periodMs =
+      period === "today" ? 24 * 3600e3 : period === "week" ? 7 * 24 * 3600e3 : period === "month" ? 30 * 24 * 3600e3 : null;
+    const q = search.trim().toLowerCase();
+    return orders.filter((o) => {
+      if (statusFilter !== "all" && o.status !== statusFilter) return false;
+      if (periodMs && now - new Date(o.created_at).getTime() > periodMs) return false;
+      if (q) {
+        const hay = `${o.customer_name} ${o.phone}`.toLowerCase();
+        if (!hay.includes(q)) return false;
+      }
+      return true;
+    });
+  }, [orders, search, statusFilter, period]);
+
   if (ordersQ.isLoading) return <p className="text-muted-foreground">Загрузка...</p>;
   if (ordersQ.isError) return <p className="text-destructive">{(ordersQ.error as Error).message}</p>;
-  const orders = ordersQ.data ?? [];
 
   return (
     <div className="space-y-4">
-      <h2 className="font-serif text-3xl mb-4">Заявки ({orders.length})</h2>
-      {orders.length === 0 && <p className="text-muted-foreground">Пока нет заявок.</p>}
-      {orders.map((o) => {
+      <div className="flex flex-wrap items-end justify-between gap-3 mb-2">
+        <h2 className="font-serif text-3xl">
+          Заявки <span className="text-muted-foreground text-base">({filtered.length} из {orders.length})</span>
+        </h2>
+      </div>
+
+      <div className="bg-background border border-border p-4 grid sm:grid-cols-3 gap-3">
+        <label className="block">
+          <span className="text-[10px] uppercase tracking-[0.2em] text-muted-foreground block mb-1">Поиск</span>
+          <input
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            placeholder="Имя или телефон"
+            className="w-full border border-input bg-background px-3 py-2 text-sm"
+          />
+        </label>
+        <label className="block">
+          <span className="text-[10px] uppercase tracking-[0.2em] text-muted-foreground block mb-1">Статус</span>
+          <select
+            value={statusFilter}
+            onChange={(e) => setStatusFilter(e.target.value as typeof statusFilter)}
+            className="w-full border border-input bg-background px-3 py-2 text-sm"
+          >
+            <option value="all">Все</option>
+            {Object.entries(ORDER_STATUS_LABELS).map(([k, label]) => (
+              <option key={k} value={k}>{label}</option>
+            ))}
+          </select>
+        </label>
+        <label className="block">
+          <span className="text-[10px] uppercase tracking-[0.2em] text-muted-foreground block mb-1">Период</span>
+          <select
+            value={period}
+            onChange={(e) => setPeriod(e.target.value as typeof period)}
+            className="w-full border border-input bg-background px-3 py-2 text-sm"
+          >
+            <option value="all">За всё время</option>
+            <option value="today">Сегодня</option>
+            <option value="week">Неделя</option>
+            <option value="month">Месяц</option>
+          </select>
+        </label>
+      </div>
+
+      {filtered.length === 0 && <p className="text-muted-foreground">Заявок не найдено.</p>}
+      {filtered.map((o) => {
         const items = (o.items as Array<{ name: string; quantity: number; price: number }>) ?? [];
         return (
           <article key={o.id} className="bg-background border border-border p-5">
@@ -170,7 +263,7 @@ function OrdersPanel() {
               <select
                 value={o.status}
                 onChange={(e) =>
-                  update.mutate({ id: o.id, status: e.target.value as "new" })
+                  update.mutate({ id: o.id, status: e.target.value as OrderStatus })
                 }
                 className="text-xs border border-input bg-background px-3 py-1.5"
               >
@@ -367,6 +460,21 @@ function ProductEditor({
   onClose: () => void;
   saving: boolean;
 }) {
+  const [uploading, setUploading] = useState(false);
+
+  async function handleFile(file: File) {
+    setUploading(true);
+    try {
+      const url = await uploadToSiteAssets(file, "products");
+      onChange({ ...value, image_url: url });
+      toast.success("Фото загружено");
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Ошибка загрузки");
+    } finally {
+      setUploading(false);
+    }
+  }
+
   return (
     <div className="fixed inset-0 bg-foreground/50 z-50 flex items-center justify-center p-4 overflow-y-auto">
       <div className="bg-background w-full max-w-2xl p-6 max-h-[90vh] overflow-y-auto">
@@ -445,14 +553,49 @@ function ProductEditor({
               className="inp"
             />
           </Field>
-          <Field label="URL изображения" full>
+
+          <div className="col-span-2 space-y-2">
+            <span className="text-[10px] uppercase tracking-[0.2em] text-muted-foreground block">
+              Фото товара
+            </span>
+            {value.image_url && (
+              <div className="aspect-[4/3] max-w-xs bg-muted overflow-hidden border border-border">
+                <img src={value.image_url} alt="Превью" className="w-full h-full object-cover" />
+              </div>
+            )}
+            <div className="flex flex-wrap gap-2 items-center">
+              <label className="inline-flex items-center bg-primary text-primary-foreground px-4 py-2 text-xs uppercase tracking-[0.2em] cursor-pointer hover:bg-foreground transition-colors">
+                <input
+                  type="file"
+                  accept="image/*"
+                  className="hidden"
+                  disabled={uploading}
+                  onChange={(e) => {
+                    const f = e.target.files?.[0];
+                    if (f) handleFile(f);
+                    e.target.value = "";
+                  }}
+                />
+                {uploading ? "Загрузка..." : value.image_url ? "Заменить фото" : "Загрузить с компьютера"}
+              </label>
+              {value.image_url && (
+                <button
+                  type="button"
+                  onClick={() => onChange({ ...value, image_url: "" })}
+                  className="text-xs underline text-muted-foreground"
+                >
+                  Убрать
+                </button>
+              )}
+            </div>
             <input
               value={value.image_url ?? ""}
               onChange={(e) => onChange({ ...value, image_url: e.target.value })}
-              placeholder="https://... или оставьте пустым для сид-изображения"
+              placeholder="Или вставьте URL изображения"
               className="inp"
             />
-          </Field>
+          </div>
+
           <Field label="Описание" full>
             <textarea
               rows={4}
@@ -480,7 +623,7 @@ function ProductEditor({
             </button>
             <button
               type="submit"
-              disabled={saving}
+              disabled={saving || uploading}
               className="bg-primary text-primary-foreground px-5 py-2 text-xs uppercase tracking-[0.2em] disabled:opacity-50"
             >
               {saving ? "..." : "Сохранить"}
@@ -532,29 +675,11 @@ function SettingsPanel() {
   });
 
   async function handleUpload(file: File) {
-    if (!file.type.startsWith("image/")) {
-      toast.error("Это не изображение");
-      return;
-    }
-    if (file.size > 8 * 1024 * 1024) {
-      toast.error("Файл больше 8 МБ");
-      return;
-    }
     setUploading(true);
     try {
-      const ext = file.name.split(".").pop()?.toLowerCase() || "jpg";
-      const path = `hero/${Date.now()}-${Math.random().toString(36).slice(2, 8)}.${ext}`;
-      const { error: upErr } = await supabase.storage
-        .from("site-assets")
-        .upload(path, file, { cacheControl: "31536000", upsert: false, contentType: file.type });
-      if (upErr) throw upErr;
-      // 100 years signed URL — bucket is private, so this URL must be long-lived.
-      const { data: signed, error: sErr } = await supabase.storage
-        .from("site-assets")
-        .createSignedUrl(path, 60 * 60 * 24 * 365 * 100);
-      if (sErr || !signed?.signedUrl) throw sErr ?? new Error("Не удалось получить ссылку");
-      setPreviewUrl(signed.signedUrl);
-      save.mutate(signed.signedUrl);
+      const url = await uploadToSiteAssets(file, "hero");
+      setPreviewUrl(url);
+      save.mutate(url);
     } catch (e) {
       toast.error(e instanceof Error ? e.message : "Ошибка загрузки");
     } finally {
@@ -617,3 +742,129 @@ function SettingsPanel() {
   );
 }
 
+function ProfilePanel() {
+  const [email, setEmail] = useState<string>("");
+  const [newEmail, setNewEmail] = useState("");
+  const [pwd, setPwd] = useState("");
+  const [pwd2, setPwd2] = useState("");
+  const [busy, setBusy] = useState<"pwd" | "email" | null>(null);
+
+  useEffect(() => {
+    supabase.auth.getUser().then(({ data }) => {
+      setEmail(data.user?.email ?? "");
+      setNewEmail(data.user?.email ?? "");
+    });
+  }, []);
+
+  async function changePassword(e: React.FormEvent) {
+    e.preventDefault();
+    if (pwd.length < 8) {
+      toast.error("Минимум 8 символов");
+      return;
+    }
+    if (pwd !== pwd2) {
+      toast.error("Пароли не совпадают");
+      return;
+    }
+    setBusy("pwd");
+    const { error } = await supabase.auth.updateUser({ password: pwd });
+    setBusy(null);
+    if (error) toast.error(error.message);
+    else {
+      toast.success("Пароль обновлён");
+      setPwd("");
+      setPwd2("");
+    }
+  }
+
+  async function changeEmail(e: React.FormEvent) {
+    e.preventDefault();
+    if (!newEmail || newEmail === email) {
+      toast.error("Введите новый email");
+      return;
+    }
+    setBusy("email");
+    const { error } = await supabase.auth.updateUser({ email: newEmail });
+    setBusy(null);
+    if (error) toast.error(error.message);
+    else toast.success("Письмо с подтверждением отправлено на новый адрес");
+  }
+
+  return (
+    <div className="max-w-2xl space-y-6">
+      <h2 className="font-serif text-3xl">Профиль администратора</h2>
+
+      <section className="bg-background border border-border p-6">
+        <h3 className="font-serif text-xl mb-1">Текущий аккаунт</h3>
+        <p className="text-sm text-muted-foreground">{email || "—"}</p>
+      </section>
+
+      <section className="bg-background border border-border p-6">
+        <h3 className="font-serif text-xl mb-4">Сменить пароль</h3>
+        <form onSubmit={changePassword} className="space-y-3 max-w-sm">
+          <label className="block">
+            <span className="text-[10px] uppercase tracking-[0.2em] text-muted-foreground block mb-1">
+              Новый пароль
+            </span>
+            <input
+              type="password"
+              value={pwd}
+              onChange={(e) => setPwd(e.target.value)}
+              minLength={8}
+              required
+              className="w-full border border-input bg-background px-3 py-2 text-sm"
+            />
+          </label>
+          <label className="block">
+            <span className="text-[10px] uppercase tracking-[0.2em] text-muted-foreground block mb-1">
+              Подтверждение
+            </span>
+            <input
+              type="password"
+              value={pwd2}
+              onChange={(e) => setPwd2(e.target.value)}
+              minLength={8}
+              required
+              className="w-full border border-input bg-background px-3 py-2 text-sm"
+            />
+          </label>
+          <button
+            type="submit"
+            disabled={busy === "pwd"}
+            className="bg-primary text-primary-foreground px-5 py-2 text-xs uppercase tracking-[0.2em] disabled:opacity-50"
+          >
+            {busy === "pwd" ? "..." : "Обновить пароль"}
+          </button>
+        </form>
+      </section>
+
+      <section className="bg-background border border-border p-6">
+        <h3 className="font-serif text-xl mb-1">Сменить email</h3>
+        <p className="text-xs text-muted-foreground mb-4">
+          На новый адрес придёт письмо для подтверждения. Логин изменится только после клика по ссылке.
+        </p>
+        <form onSubmit={changeEmail} className="space-y-3 max-w-sm">
+          <label className="block">
+            <span className="text-[10px] uppercase tracking-[0.2em] text-muted-foreground block mb-1">
+              Новый email
+            </span>
+            <input
+              type="email"
+              value={newEmail}
+              onChange={(e) => setNewEmail(e.target.value)}
+              required
+              className="w-full border border-input bg-background px-3 py-2 text-sm"
+            />
+          </label>
+          <button
+            type="submit"
+            disabled={busy === "email"}
+            className="bg-primary text-primary-foreground px-5 py-2 text-xs uppercase tracking-[0.2em] disabled:opacity-50"
+          >
+            {busy === "email" ? "..." : "Сменить email"}
+          </button>
+        </form>
+      </section>
+    </div>
+  );
+}
