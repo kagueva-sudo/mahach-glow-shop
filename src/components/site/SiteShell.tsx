@@ -1,6 +1,7 @@
 import type { ReactNode } from "react";
 import { Header } from "./Header";
 import { Footer } from "./Footer";
+import { ChatWidget } from "./ChatWidget";
 
 export function SiteShell({ children }: { children: ReactNode }) {
   return (
@@ -8,6 +9,7 @@ export function SiteShell({ children }: { children: ReactNode }) {
       <Header />
       <main className="flex-1">{children}</main>
       <Footer />
+      <ChatWidget />
     </div>
   );
 }
