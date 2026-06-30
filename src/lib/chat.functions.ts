@@ -91,7 +91,7 @@ const sendSchema = z.object({
 
 export const sendChatMessage = createServerFn({ method: "POST" })
   .inputValidator((data: unknown) => sendSchema.parse(data))
-  .handler(async ({ data }): Promise<{ reply: string; orderId: string | null; state.ticket: boolean }> => {
+  .handler(async ({ data }): Promise<{ reply: string; orderId: string | null; ticketOpened: boolean }> => {
     const key = process.env.LOVABLE_API_KEY;
     if (!key) throw new Error("Missing LOVABLE_API_KEY");
 
@@ -294,7 +294,7 @@ ${catalog || "(каталог пуст)"}
       .update({ last_message_at: new Date().toISOString() })
       .eq("id", session.id);
 
-    return { reply: replyText, orderId: state.orderId, state.ticket };
+    return { reply: replyText, orderId: state.orderId, ticketOpened: state.ticket };
   });
 
 // ===== Admin =====
