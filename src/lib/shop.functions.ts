@@ -91,7 +91,8 @@ export const submitOrder = createServerFn({ method: "POST" })
       };
     });
     const total = validatedItems.reduce((sum, i) => sum + i.price * i.quantity, 0);
-    const { data: row, error } = await supabase
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const { data: row, error } = await supabaseAdmin
       .from("orders")
       .insert({
         customer_name: data.customer_name,
