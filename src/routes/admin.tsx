@@ -15,6 +15,11 @@ import {
   getHeroImageUrl,
   adminSetHeroImageUrl,
 } from "@/lib/shop.functions";
+import {
+  adminListChatSessions,
+  adminListChatMessages,
+  adminUpdateChatStatus,
+} from "@/lib/chat.functions";
 
 
 export const Route = createFileRoute("/admin")({
@@ -55,7 +60,7 @@ async function uploadToSiteAssets(file: File, folder: string): Promise<string> {
 
 function AdminPage() {
   const navigate = useNavigate();
-  const [tab, setTab] = useState<"orders" | "products" | "settings" | "profile">("orders");
+  const [tab, setTab] = useState<"orders" | "products" | "chats" | "settings" | "profile">("orders");
   const checkAdmin = useServerFn(checkIsAdmin);
   const listOrdersFn = useServerFn(adminListOrders);
 
@@ -108,6 +113,9 @@ function AdminPage() {
               <TabBtn active={tab === "products"} onClick={() => setTab("products")}>
                 Товары
               </TabBtn>
+              <TabBtn active={tab === "chats"} onClick={() => setTab("chats")}>
+                Чаты
+              </TabBtn>
               <TabBtn active={tab === "settings"} onClick={() => setTab("settings")}>
                 Оформление
               </TabBtn>
@@ -130,6 +138,7 @@ function AdminPage() {
       <main className="max-w-6xl mx-auto p-6">
         {tab === "orders" && <OrdersPanel />}
         {tab === "products" && <ProductsPanel />}
+        {tab === "chats" && <ChatsPanel />}
         {tab === "settings" && <SettingsPanel />}
         {tab === "profile" && <ProfilePanel />}
       </main>
@@ -864,6 +873,173 @@ function ProfilePanel() {
             {busy === "email" ? "..." : "Сменить email"}
           </button>
         </form>
+      </section>
+    </div>
+  );
+}
+
+const CHAT_STATUS_LABELS = {
+  active: "Активен",
+  ticket: "Тикет",
+  ordered: "Заказ оформлен",
+  closed: "Закрыт",
+} as const;
+type ChatStatus = keyof typeof CHAT_STATUS_LABELS;
+
+function ChatsPanel() {
+  const listFn = useServerFn(adminListChatSessions);
+  const msgFn = useServerFn(adminListChatMessages);
+  const updateFn = useServerFn(adminUpdateChatStatus);
+  const qc = useQueryClient();
+  const [selected, setSelected] = useState<string | null>(null);
+  const [filter, setFilter] = useState<"all" | "tickets" | ChatStatus>("all");
+
+  const sessionsQ = useQuery({
+    queryKey: ["admin", "chats"],
+    queryFn: () => listFn({}),
+    refetchInterval: 15000,
+  });
+
+  const messagesQ = useQuery({
+    queryKey: ["admin", "chat-msgs", selected],
+    queryFn: () => msgFn({ data: { sessionId: selected! } }),
+    enabled: !!selected,
+  });
+
+  const update = useMutation({
+    mutationFn: (vars: { id: string; status?: ChatStatus; needs_operator?: boolean }) =>
+      updateFn({ data: vars }),
+    onSuccess: () => {
+      toast.success("Обновлено");
+      qc.invalidateQueries({ queryKey: ["admin", "chats"] });
+    },
+    onError: (e) => toast.error(e instanceof Error ? e.message : "Ошибка"),
+  });
+
+  const sessions = sessionsQ.data ?? [];
+  const filtered = sessions.filter((s) => {
+    if (filter === "all") return true;
+    if (filter === "tickets") return s.needs_operator;
+    return s.status === filter;
+  });
+  const ticketCount = sessions.filter((s) => s.needs_operator && s.status !== "closed").length;
+  const selectedSession = sessions.find((s) => s.id === selected);
+
+  if (sessionsQ.isLoading) return <p className="text-muted-foreground">Загрузка...</p>;
+
+  return (
+    <div className="grid lg:grid-cols-[360px_1fr] gap-4">
+      <aside className="space-y-2">
+        <div className="flex items-center justify-between">
+          <h2 className="font-serif text-2xl">Чаты ({sessions.length})</h2>
+          {ticketCount > 0 && (
+            <span className="bg-destructive text-destructive-foreground text-xs px-2 py-1 rounded">
+              {ticketCount} тикет.
+            </span>
+          )}
+        </div>
+        <select
+          value={filter}
+          onChange={(e) => setFilter(e.target.value as typeof filter)}
+          className="w-full border border-input bg-background px-3 py-2 text-sm"
+        >
+          <option value="all">Все</option>
+          <option value="tickets">Только с тикетом</option>
+          {Object.entries(CHAT_STATUS_LABELS).map(([k, v]) => (
+            <option key={k} value={k}>{v}</option>
+          ))}
+        </select>
+        <div className="bg-background border border-border max-h-[70vh] overflow-y-auto divide-y divide-border">
+          {filtered.length === 0 && (
+            <p className="p-4 text-sm text-muted-foreground">Ничего не найдено</p>
+          )}
+          {filtered.map((s) => (
+            <button
+              key={s.id}
+              onClick={() => setSelected(s.id)}
+              className={
+                "w-full text-left px-4 py-3 hover:bg-muted transition-colors " +
+                (selected === s.id ? "bg-muted" : "")
+              }
+            >
+              <div className="flex justify-between items-start gap-2">
+                <p className="font-medium text-sm">{s.customer_name}</p>
+                {s.needs_operator && (
+                  <span className="bg-destructive text-destructive-foreground text-[10px] px-1.5 py-0.5 rounded">
+                    !
+                  </span>
+                )}
+              </div>
+              <p className="text-xs text-muted-foreground">{s.phone}</p>
+              <p className="text-[10px] text-muted-foreground mt-1 flex justify-between">
+                <span>{CHAT_STATUS_LABELS[s.status as ChatStatus] ?? s.status}</span>
+                <span>{new Date(s.last_message_at).toLocaleString("ru-RU")}</span>
+              </p>
+            </button>
+          ))}
+        </div>
+      </aside>
+
+      <section className="bg-background border border-border min-h-[60vh] flex flex-col">
+        {!selectedSession ? (
+          <div className="flex-1 flex items-center justify-center text-muted-foreground text-sm">
+            Выберите чат слева
+          </div>
+        ) : (
+          <>
+            <header className="border-b border-border p-4 flex flex-wrap justify-between gap-3 items-start">
+              <div>
+                <p className="font-serif text-xl">{selectedSession.customer_name}</p>
+                <p className="text-xs text-muted-foreground">
+                  {selectedSession.phone} · открыт {new Date(selectedSession.created_at).toLocaleString("ru-RU")}
+                </p>
+              </div>
+              <div className="flex flex-wrap gap-2 items-center">
+                <select
+                  value={selectedSession.status}
+                  onChange={(e) =>
+                    update.mutate({ id: selectedSession.id, status: e.target.value as ChatStatus })
+                  }
+                  className="text-xs border border-input bg-background px-3 py-1.5"
+                >
+                  {Object.entries(CHAT_STATUS_LABELS).map(([k, v]) => (
+                    <option key={k} value={k}>{v}</option>
+                  ))}
+                </select>
+                {selectedSession.needs_operator && (
+                  <button
+                    onClick={() =>
+                      update.mutate({ id: selectedSession.id, needs_operator: false })
+                    }
+                    className="text-xs underline"
+                  >
+                    Снять флаг тикета
+                  </button>
+                )}
+              </div>
+            </header>
+            <div className="flex-1 overflow-y-auto p-4 space-y-3">
+              {messagesQ.isLoading && <p className="text-muted-foreground text-sm">Загрузка...</p>}
+              {(messagesQ.data ?? []).map((m) => (
+                <div
+                  key={m.id}
+                  className={
+                    m.role === "user"
+                      ? "ml-auto max-w-[75%] bg-primary text-primary-foreground rounded-2xl rounded-tr-sm px-4 py-2 text-sm whitespace-pre-wrap"
+                      : m.role === "assistant"
+                        ? "mr-auto max-w-[75%] bg-secondary rounded-2xl rounded-tl-sm px-4 py-2 text-sm whitespace-pre-wrap"
+                        : "mx-auto max-w-[80%] bg-muted text-xs text-muted-foreground rounded px-3 py-2 italic whitespace-pre-wrap"
+                  }
+                >
+                  {m.content}
+                  <div className="text-[10px] opacity-60 mt-1">
+                    {new Date(m.created_at).toLocaleString("ru-RU")}
+                  </div>
+                </div>
+              ))}
+            </div>
+          </>
+        )}
       </section>
     </div>
   );
