@@ -15,6 +15,11 @@ import {
   getHeroImageUrl,
   adminSetHeroImageUrl,
 } from "@/lib/shop.functions";
+import {
+  adminListChatSessions,
+  adminListChatMessages,
+  adminUpdateChatStatus,
+} from "@/lib/chat.functions";
 
 
 export const Route = createFileRoute("/admin")({
@@ -55,7 +60,7 @@ async function uploadToSiteAssets(file: File, folder: string): Promise<string> {
 
 function AdminPage() {
   const navigate = useNavigate();
-  const [tab, setTab] = useState<"orders" | "products" | "settings" | "profile">("orders");
+  const [tab, setTab] = useState<"orders" | "products" | "chats" | "settings" | "profile">("orders");
   const checkAdmin = useServerFn(checkIsAdmin);
   const listOrdersFn = useServerFn(adminListOrders);
 
@@ -108,6 +113,9 @@ function AdminPage() {
               <TabBtn active={tab === "products"} onClick={() => setTab("products")}>
                 Товары
               </TabBtn>
+              <TabBtn active={tab === "chats"} onClick={() => setTab("chats")}>
+                Чаты
+              </TabBtn>
               <TabBtn active={tab === "settings"} onClick={() => setTab("settings")}>
                 Оформление
               </TabBtn>
@@ -130,6 +138,7 @@ function AdminPage() {
       <main className="max-w-6xl mx-auto p-6">
         {tab === "orders" && <OrdersPanel />}
         {tab === "products" && <ProductsPanel />}
+        {tab === "chats" && <ChatsPanel />}
         {tab === "settings" && <SettingsPanel />}
         {tab === "profile" && <ProfilePanel />}
       </main>
