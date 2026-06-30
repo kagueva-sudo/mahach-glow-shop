@@ -161,8 +161,7 @@ ${catalog || "(каталог пуст)"}
     const gateway = createLovableAiGatewayProvider(key);
     const model = gateway("google/gemini-3-flash-preview");
 
-    let createdOrderId: string | null = null;
-    let ticketOpened = false;
+    const state: { orderId: string | null; ticket: boolean } = { orderId: null, ticket: false };
 
     const tools = {
       create_order: tool({
