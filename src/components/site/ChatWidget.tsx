@@ -175,13 +175,13 @@ export function ChatWidget() {
                   rows={1}
                   placeholder="Напишите сообщение…"
                   className="flex-1 resize-none bg-transparent border-0 px-2 py-2 text-sm focus:outline-none max-h-32"
-                  disabled={sending}
                 />
                 <button
                   type="submit"
-                  disabled={sending || !input.trim()}
+                  disabled={!input.trim()}
                   className="h-9 w-9 rounded-full bg-primary text-primary-foreground flex items-center justify-center disabled:opacity-40"
                   aria-label="Отправить"
+
                 >
                   <Send className="h-4 w-4" />
                 </button>
